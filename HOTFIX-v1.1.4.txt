@@ -1,0 +1,20 @@
+MONSTRUM CODEX INFINITE v1.1.4 TARGET-CLOSED HOTFIX
+
+WHY v1.1.3 OPENED ONLY ABOUT:BLANK
+The cache launched Opera externally, attached through Chrome DevTools Protocol, selected a startup page, and then closed the other tabs. Opera could replace or close that selected page after attachment. Playwright retained the dead page object, causing TargetClosedError on both goto() and bring_to_front().
+
+WHAT v1.1.4 CHANGES
+- Playwright now launches and owns the persistent browser context directly.
+- Edge/Chrome/Brave are preferred before Opera GX for automation stability.
+- A fresh cache-only profile is stored at userdata\official-browser-profile-v2.
+- Closed or replaced pages are automatically reacquired.
+- Failed navigation is retried once with a newly acquired page.
+- Category, file-page, and image navigation all use the recovery layer.
+- Extra tabs are closed only after the category tab is established.
+
+INSTALL
+Close the old cache browser window and Monstrum Codex. Merge this hotfix into the existing Monstrum_Codex_Infinite folder and replace files. Keep userdata. Run cache_official_images_windows.bat. Leave the dedicated browser window open while the terminal is caching.
+
+LOGS
+userdata\official-browser-cache.log
+userdata\official-image-cache-report.txt

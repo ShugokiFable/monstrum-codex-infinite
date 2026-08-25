@@ -1,0 +1,10 @@
+MONSTRUM CODEX INFINITE v1.1.7 OFFICIAL MEDIA REPAIR HOTFIX
+
+1. Close Monstrum Codex and the dedicated cache browser.
+2. Extract this archive beside your current installation.
+3. Merge and replace files inside Monstrum_Codex_Infinite.
+4. Keep your existing userdata folder.
+5. Launch the app and press Ctrl+F5 once. Existing portrait or entry media can now fill previously blank cards immediately.
+6. Run cache_official_images_windows.bat normally to repair unresolved mugshots and re-index compact/unnumbered portrait filenames.
+
+Do not use --refresh unless you deliberately want to redownload every media asset. Schema v3 rechecks old manifests while reusing healthy local files.

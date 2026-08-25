@@ -1,0 +1,21 @@
+MONSTRUM CODEX INFINITE v1.1.6 MULTI-ASSET MEDIA HOTFIX
+
+INSTALL
+1. Close Monstrum Codex and the dedicated cache browser.
+2. Extract this archive beside the existing installation.
+3. Merge and replace files inside Monstrum_Codex_Infinite.
+4. Keep the existing userdata folder.
+5. Run cache_official_images_windows.bat normally.
+6. Reopen the app and press Ctrl+F5 once when using browser mode.
+
+WHAT CHANGED
+- Cards use the dedicated mugshot.
+- Detail heroes prefer full standalone portraits such as Apsara_0.jpg.
+- Every matching numbered portrait is cached, not only the first one.
+- English and Japanese encyclopedia entry pages are cached separately.
+- The detail panel contains Mugshot, Portraits, and Entry Images galleries.
+- Existing v1.1.5 mugshots are reused; only missing media is downloaded.
+- The new manifest retries partial failures on the next run.
+
+DATA
+All media stays under userdata\media. The source ZIP contains no franchise image binaries.

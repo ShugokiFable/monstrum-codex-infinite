@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Monstrum Codex Infinite</title>
+  <link rel="icon" href="/assets/sigil.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/assets/app.css?v=1.6.1" />
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar">
+    <button class="brand" id="homeBtn" aria-label="Codex home">
+      <img src="/assets/sigil.svg" alt="" />
+      <span><strong>MONSTRUM</strong><small>CODEX INFINITE</small></span>
+    </button>
+    <div class="search-shell">
+      <span class="search-icon">⌕</span>
+      <input id="searchInput" type="search" placeholder="Search species, aliases, tags, lore…" autocomplete="off" />
+      <kbd>Ctrl K</kbd>
+    </div>
+    <div class="top-actions">
+      <button class="button ghost" id="importBtn">Import</button>
+      <button class="button ghost" id="newUserBtn">New Entry</button>
+      <button class="button ghost" id="backupBtn">Backup</button>
+      <button class="button ghost icon" id="settingsBtn" title="Settings">⚙</button>
+      <button class="button ghost" id="surpriseBtn" title="Surprise me (S)"><span class="surprise-glyph">⚄</span> Surprise</button>
+      <button class="button ghost icon" id="cheatBtn" title="Keyboard shortcuts (?)">?</button>
+      <button class="button primary" id="forgeBtn"><span>✦</span> Forge Entry</button>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <div class="side-section">
+      <p class="eyebrow">LIBRARY</p>
+      <button class="nav-item active" data-view="all"><span>◈</span> All Entries <b id="countAll">0</b></button>
+      <button class="nav-item official-nav" data-view="official"><span>◆</span> Official Archive <b id="countOfficial">0</b></button>
+      <button class="nav-item ai-nav" data-view="ai"><span>✦</span> AI Forged <b id="countAI">0</b></button>
+      <button class="nav-item user-nav" data-view="user"><span>◇</span> User Creations <b id="countUser">0</b></button>
+      <button class="nav-item" data-view="favorites"><span>♡</span> Favorites <b id="countFav">0</b></button>
+      <button class="nav-item" data-view="recent"><span>◷</span> Recently Added</button>
+    </div>
+    <div class="side-section filters">
+      <div class="section-heading"><p class="eyebrow">FILTERS</p><button id="clearFilters">Reset</button></div>
+      <label>Family<select id="familyFilter"><option value="">Every family</option></select></label>
+      <label>Habitat<select id="habitatFilter"><option value="">Every habitat</option></select></label>
+      <label>Rarity<select id="rarityFilter"><option value="">Every rarity</option></select></label>
+      <label>Sort<select id="sortFilter">
+        <option value="name">Name A–Z</option>
+        <option value="newest">Newest</option>
+        <option value="danger">Danger</option>
+        <option value="rarity">Rarity</option>
+      </select></label>
+    </div>
+    <div class="side-section">
+      <p class="eyebrow">BRIDGES</p>
+      <button class="nav-item" id="openSillyHelp"><span>◫</span> SillyTavern</button>
+      <button class="nav-item" id="openComfyHelp"><span>⌘</span> ComfyUI</button>
+    </div>
+    <div class="sidebar-foot">
+      <div class="status-dot"></div>
+      <div><strong>Local archive online</strong><small id="versionText">v1.5.0</small></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">LIVING BESTIARY</p>
+        <h1 id="pageTitle">The Infinite Index</h1>
+        <p id="pageSubtitle">Official references, AI-forged species, and your own creations in three clearly separated libraries.</p>
+      </div>
+      <div class="hero-stat"><strong id="visibleCount">0</strong><span>visible specimens</span></div>
+    </section>
+    <div id="recentStrip" class="recent-strip" aria-label="Recently viewed specimens"></div>
+
+    <section id="entryGrid" class="entry-grid" aria-live="polite"></section>
+    <section id="emptyState" class="empty-state hidden">
+      <div class="empty-sigil">◇</div>
+      <h2>No specimen matches that trail.</h2>
+      <p>Clear a filter or forge the missing creature yourself.</p>
+      <button class="button primary" id="emptyForgeBtn">Forge Entry</button>
+    </section>
+  </main>
+
+  <aside id="detailPanel" class="detail-panel" aria-hidden="true">
+    <div class="detail-head">
+      <button class="button ghost icon" id="closeDetail" title="Back to codex (Esc)">×</button>
+      <div class="detail-actions">
+        <button class="button ghost icon" id="prevEntryBtn" title="Previous entry (←)" aria-label="Previous entry">‹</button>
+        <button class="button ghost icon" id="nextEntryBtn" title="Next entry (→)" aria-label="Next entry">›</button>
+        <button class="button ghost" id="favoriteDetail">♡ Favorite</button>
+        <button class="button ghost" id="editDetail">Edit</button>
+        <button class="button ghost" id="exportDetail">Export</button>
+      </div>
+    </div>
+    <div id="detailContent" class="detail-scroll"></div>
+  </aside>
+  <section id="specimenPage" aria-hidden="true"></section>
+  <div id="panelVeil" class="panel-veil"></div>
+
+  <dialog id="forgeDialog" class="modal forge-modal">
+    <form method="dialog" class="modal-shell" id="forgeForm">
+      <header class="modal-head">
+        <div><p class="eyebrow">AI CREATION STUDIO</p><h2>Forge a New Species</h2></div>
+        <button value="cancel" class="modal-close" aria-label="Close">×</button>
+      </header>
+      <div class="forge-layout">
+        <div class="forge-inputs">
+          <label class="field span-2">Core concept<textarea id="forgeConcept" rows="6" required placeholder="An adult moth oracle who reads eclipses in the dust on her wings…"></textarea></label>
+          <label class="field">Tone<input id="forgeTone" value="dark fantasy field guide, vivid and coherent" /></label>
+          <label class="field">OpenRouter model<select id="forgeModel"><option value="">Load models in Settings</option></select></label>
+          <label class="field span-2">World continuity<textarea id="forgeWorld" rows="4" placeholder="Optional setting laws, factions, cosmology, neighboring species…"></textarea></label>
+          <label class="switch-row span-2"><input id="forgeMature" type="checkbox" /><span></span><div><strong>Mature setting themes</strong><small>Generated characters remain explicitly adult.</small></div></label>
+          <div class="forge-submit span-2">
+            <p id="forgeStatus">Uses OpenRouter structured JSON output.</p>
+            <button type="submit" class="button primary large" id="forgeGenerate">✦ Generate Codex Draft</button>
+          </div>
+        </div>
+        <div class="forge-preview" id="forgePreview">
+          <div class="preview-placeholder"><span>✧</span><strong>The draft appears here</strong><p>Lore, anatomy, ecology, roleplay fields, and image prompts are generated together.</p></div>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="editorDialog" class="modal editor-modal">
+    <form method="dialog" class="modal-shell" id="editorForm">
+      <header class="modal-head">
+        <div><p class="eyebrow">CODEX EDITOR</p><h2 id="editorTitle">New Entry</h2></div>
+        <button value="cancel" class="modal-close" aria-label="Close">×</button>
+      </header>
+      <div id="editorFields" class="editor-grid"></div>
+      <footer class="modal-footer">
+        <button type="button" class="button danger hidden" id="deleteEntry">Delete Entry</button>
+        <span class="spacer"></span>
+        <button value="cancel" class="button ghost">Cancel</button>
+        <button type="submit" class="button primary">Save Entry</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="imageDialog" class="modal image-modal">
+    <form method="dialog" class="modal-shell" id="imageForm">
+      <header class="modal-head">
+        <div><p class="eyebrow">VISUAL MANIFESTATION</p><h2>Generate or Attach Art</h2></div>
+        <button value="cancel" class="modal-close" aria-label="Close">×</button>
+      </header>
+      <div class="image-layout">
+        <div class="image-preview" id="imagePreview"><span>No portrait yet</span></div>
+        <div class="image-controls">
+          <label class="field">Provider<select id="imageProvider">
+            <option value="comfyui">ComfyUI Local</option>
+            <option value="openai">OpenAI API</option>
+            <option value="gemini">Google Gemini API</option>
+            <option value="manual-chatgpt">ChatGPT Subscription Handoff</option>
+            <option value="manual-gemini">Gemini Subscription Handoff</option>
+          </select></label>
+          <label class="field">Prompt<textarea id="imagePrompt" rows="9"></textarea></label>
+          <label class="field">Negative prompt<textarea id="negativePrompt" rows="4"></textarea></label>
+          <div class="two-col">
+            <label class="field">Width<input id="imageWidth" type="number" value="832" /></label>
+            <label class="field">Height<input id="imageHeight" type="number" value="1216" /></label>
+          </div>
+          <label class="upload-button button ghost">Attach local image<input id="localImageInput" type="file" accept="image/*" hidden /></label>
+          <p class="micro" id="imageStatus">ComfyUI uses your saved API-format workflow.</p>
+          <button type="submit" class="button primary large" id="imageGenerateBtn">Generate Portrait</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog" class="modal settings-modal">
+    <form method="dialog" class="modal-shell" id="settingsForm">
+      <header class="modal-head">
+        <div><p class="eyebrow">CONNECTION VAULT</p><h2>Providers & Bridges</h2></div>
+        <button value="cancel" class="modal-close" aria-label="Close">×</button>
+      </header>
+      <div class="settings-tabs">
+        <button type="button" class="active" data-tab="lore">Lore AI</button>
+        <button type="button" data-tab="images">Image AI</button>
+        <button type="button" data-tab="comfy">ComfyUI</button>
+        <button type="button" data-tab="data">Data</button>
+      </div>
+      <div class="settings-content">
+        <section class="settings-pane active" data-pane="lore">
+          <h3>OpenRouter</h3>
+          <p>Used for structured lore, anatomy, ecology, and SillyTavern fields.</p>
+          <label class="field">API key<input id="openrouterKey" type="password" autocomplete="off" placeholder="sk-or-v1-…" /></label>
+          <label class="field">Default model<select id="openrouterModel"><option value="">Fetch models first</option></select></label>
+          <button type="button" class="button ghost" id="fetchModelsBtn">Fetch OpenRouter Models</button>
+        </section>
+        <section class="settings-pane" data-pane="images">
+          <h3>Hosted image APIs</h3>
+          <p>Consumer ChatGPT/Gemini subscriptions do not expose keys. Use API keys here, or use manual handoff in the image studio.</p>
+          <label class="field">Default image provider<select id="defaultImageProvider"><option value="comfyui">ComfyUI Local</option><option value="openai">OpenAI API</option><option value="gemini">Google Gemini API</option><option value="manual-chatgpt">ChatGPT Subscription Handoff</option><option value="manual-gemini">Gemini Subscription Handoff</option></select></label>
+          <label class="field">OpenAI API key<input id="openaiKey" type="password" autocomplete="off" /></label>
+          <label class="field">OpenAI model<input id="openaiModel" value="gpt-image-2" list="openaiImageModels" /></label>
+          <datalist id="openaiImageModels"><option value="gpt-image-2"></option></datalist>
+          <label class="field">Google AI Studio API key<input id="geminiKey" type="password" autocomplete="off" /></label>
+          <label class="field">Gemini image model<input id="geminiModel" value="gemini-3.1-flash-image" list="geminiImageModels" /></label>
+          <datalist id="geminiImageModels"><option value="gemini-3.1-flash-image"></option><option value="gemini-3.1-flash-lite-image"></option><option value="gemini-3-pro-image"></option></datalist>
+          <div class="ai-art-batch-box">
+            <h3>Fill missing AI and user portraits</h3>
+            <p>The Official cache only downloads canonical source artwork. AI-Forged entries such as Aello have no official file, so their portraits must be generated with ComfyUI, OpenAI API, or Gemini API.</p>
+            <div class="two-col">
+              <label class="field">Batch provider<select id="batchImageProvider"><option value="default">Saved default</option><option value="comfyui">ComfyUI Local</option><option value="openai">OpenAI API</option><option value="gemini">Gemini API</option></select></label>
+              <label class="field">Libraries<select id="batchImageKinds"><option value="ai">AI Forged only</option><option value="user">User only</option><option value="ai,user">AI Forged + User</option></select></label>
+            </div>
+            <label class="field">Maximum images this run<input id="batchImageLimit" type="number" min="1" max="2000" value="10" /></label>
+            <button type="button" class="button primary" id="generateMissingArtBtn">Generate Missing Portraits</button>
+            <small id="aiArtBatchStatus">Hosted providers can create billable API usage. ComfyUI runs locally.</small>
+          </div>
+        </section>
+        <section class="settings-pane" data-pane="comfy">
+          <h3>ComfyUI</h3>
+          <p>Export a workflow using <b>Save (API Format)</b>, then paste it below. Replace desired values with <code>{{PROMPT}}</code>, <code>{{NEGATIVE_PROMPT}}</code>, <code>{{WIDTH}}</code>, <code>{{HEIGHT}}</code>, and <code>{{SEED}}</code>.</p>
+          <label class="field">Server URL<input id="comfyUrl" value="http://127.0.0.1:8188" /></label>
+          <label class="field">API workflow JSON<textarea id="comfyWorkflow" rows="13" spellcheck="false"></textarea></label>
+        </section>
+        <section class="settings-pane" data-pane="data">
+          <h3>Local storage</h3>
+          <p>Everything lives in <code>userdata/</code>. Keys are stored locally in the SQLite database when you save this page.</p>
+          <label class="switch-row"><input id="compactCards" type="checkbox" /><span></span><div><strong>Compact specimen cards</strong><small>Fit more entries on screen.</small></div></label>
+          <label class="switch-row"><input id="remoteOfficialImages" type="checkbox" /><span></span><div><strong>Try remote source URLs</strong><small>Optional and unreliable while the source wiki uses Cloudflare. Local browser-cached artwork is preferred.</small></div></label>
+          <div class="official-cache-box">
+            <h3>Official reference art</h3>
+            <p>The source wiki blocks ordinary app requests with Cloudflare. This launches a real installed browser, lets you complete the site check, indexes both Mugshot Image and Profile Image, then stores the dedicated mugshot, every numbered standalone portrait, and every English/Japanese encyclopedia entry page locally.</p>
+            <button type="button" class="button primary" id="cacheOfficialBtn">Open Real-Browser Cache</button>
+            <small id="officialSyncStatus">Repair mode: cards prefer mugshots, then fall back to full portraits or entry pages; detail heroes prefer full portraits.</small>
+          </div>
+          <button type="button" class="button ghost" id="settingsBackupBtn">Download full backup</button>
+        </section>
+      </div>
+      <footer class="modal-footer"><span class="spacer"></span><button value="cancel" class="button ghost">Cancel</button><button type="submit" class="button primary">Save Settings</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="exportDialog" class="modal export-modal">
+    <div class="modal-shell">
+      <header class="modal-head"><div><p class="eyebrow">PORTABLE FORMATS</p><h2>Export Entry</h2></div><button class="modal-close" id="closeExport">×</button></header>
+      <div class="export-grid">
+        <button data-export="json"><strong>CCv3 JSON</strong><span>Editable character card data</span></button>
+        <button data-export="png"><strong>CCv3 PNG</strong><span>Avatar with embedded card metadata</span></button>
+        <button data-export="charx"><strong>CHARX</strong><span>Portable card archive</span></button>
+        <button data-export="lorebook"><strong>Lorebook JSON</strong><span>SillyTavern World Info import</span></button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="helpDialog" class="modal help-modal">
+    <div class="modal-shell">
+      <header class="modal-head"><div><p class="eyebrow">BRIDGE GUIDE</p><h2 id="helpTitle">Integration</h2></div><button class="modal-close" id="closeHelp">×</button></header>
+      <div id="helpBody" class="help-body"></div>
+    </div>
+  </dialog>
+
+  <dialog id="officialMediaDialog" class="modal official-media-modal">
+    <div class="modal-shell">
+      <header class="modal-head"><div><p class="eyebrow">OFFICIAL MEDIA</p><h2 id="officialMediaTitle">Official Image</h2></div><button class="modal-close" id="closeOfficialMedia" aria-label="Close">×</button></header>
+      <div class="official-media-viewer"><img id="officialMediaImage" alt="Official media" /></div>
+      <footer class="modal-footer"><a id="officialMediaSource" class="button ghost hidden" href="#" target="_blank" rel="noopener noreferrer">Open Source File</a><span class="spacer"></span><button type="button" class="button primary" id="closeOfficialMediaFooter">Close</button></footer>
+    </div>
+  </dialog>
+
+  <dialog id="cheatDialog" class="modal cheat-modal">
+    <div class="modal-shell">
+      <header class="modal-head"><div><p class="eyebrow">FIELD MANUAL</p><h2>Keyboard Shortcuts</h2></div><button class="modal-close" id="closeCheat" aria-label="Close">×</button></header>
+      <div class="cheat-grid">
+        <span><kbd>Ctrl</kbd> <kbd>K</kbd></span><span class="desc">Focus search</span>
+        <span><kbd>S</kbd></span><span class="desc">Surprise me — random specimen from this view</span>
+        <span><kbd>F</kbd></span><span class="desc">Toggle favorite (while the detail panel is open)</span>
+        <span><kbd>←</kbd> <kbd>→</kbd></span><span class="desc">Previous / next entry (while the detail panel is open)</span>
+        <span><kbd>Esc</kbd></span><span class="desc">Close detail panel or dialog</span>
+        <span><kbd>?</kbd></span><span class="desc">This cheatsheet</span>
+      </div>
+    </div>
+  </dialog>
+
+  <input type="file" id="importFile" accept=".json,.csv" hidden />
+  <div id="toastStack" class="toast-stack"></div>
+  <script src="/assets/app.js?v=1.6.1" type="module"></script>
+</body>
+</html>
