@@ -399,6 +399,63 @@ class SmokeTests(unittest.TestCase):
         self.assertEqual(status.status_code, 200)
         self.assertGreaterEqual(status.json()["total"], 259)
 
+    def test_media_path_rejects_traversal(self):
+        from fastapi import HTTPException
+        from app.main import _safe_media_path
+
+        for name in (
+            "../secret.png",
+            "..\\secret.png",
+            "/etc/passwd",
+            "foo/../../etc/passwd",
+            "foo\x00.png",
+            "..",
+            "",
+        ):
+            with self.assertRaises(HTTPException) as ctx:
+                _safe_media_path(name)
+            self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(self.client.get("/media/%2e%2e").status_code, 400)
+        self.assertEqual(self.client.get("/media/..%5csecret.png").status_code, 400)
+
+    def test_media_path_serves_only_inside_root(self):
+        from app.main import _safe_media_path
+
+        name = "test-safe-media.png"
+        path = db.MEDIA_DIR / name
+        Image.new("RGB", (8, 8), "white").save(path)
+        try:
+            self.assertEqual(_safe_media_path(name).resolve(), path.resolve())
+            response = self.client.get(f"/media/{name}")
+            self.assertEqual(response.status_code, 200)
+            missing = self.client.get("/media/definitely-not-a-real-file-xyz.png")
+            self.assertEqual(missing.status_code, 404)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_ai_batch_command_uses_allowlist(self):
+        import sys
+        from fastapi import HTTPException
+        from app.main import _ai_batch_command, _resolve_ai_batch_kinds, _resolve_ai_batch_provider
+
+        self.assertEqual(_resolve_ai_batch_provider("ComfyUI"), "comfyui")
+        with self.assertRaises(HTTPException) as ctx:
+            _resolve_ai_batch_provider("comfyui; calc.exe")
+        self.assertEqual(ctx.exception.status_code, 400)
+        with self.assertRaises(HTTPException):
+            _resolve_ai_batch_provider("powershell")
+        kinds = _resolve_ai_batch_kinds(["ai", "user", "ai;id", "official"])
+        self.assertEqual(kinds, ("ai", "user"))
+        command = _ai_batch_command("openai", kinds, 10, True)
+        self.assertEqual(command[0], sys.executable)
+        self.assertTrue(all(isinstance(part, str) for part in command))
+        self.assertEqual(command[command.index("--provider") + 1], "openai")
+        self.assertEqual(command[command.index("--kinds") + 1], "ai,user")
+        self.assertEqual(command[command.index("--limit") + 1], "10")
+        self.assertIn("--yes-hosted", command)
+        self.assertFalse(any("|" in part or ";" in part or "&" in part for part in command))
+        bad = self.client.post("/api/ai/image-batch-launch", json={"provider": "bash -c id", "catalog_kinds": ["ai"]})
+        self.assertEqual(bad.status_code, 400)
 
 
 if __name__ == "__main__":

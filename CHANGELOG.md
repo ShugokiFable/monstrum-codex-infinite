@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.2 — Command and path injection hardening
+
+- Batch image generation now maps provider/kind arguments through a constant allowlist and launches `python -m tools.generate_ai_images` as an argv list with `shell=False`.
+- `/media/{filename}` resolves and bound-checks the path inside `userdata/media`, rejecting `..`, absolute paths, and NUL.
+
 ## 1.6.1 — Real Text For The Official Archive
 
 - New real-browser text harvester (`app/wiki_text_cache.py` + `tools/cache_official_text.py`,

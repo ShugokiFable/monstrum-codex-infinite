@@ -6,6 +6,7 @@ import io
 import json
 import mimetypes
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -41,6 +42,102 @@ _BROWSER_CACHE_PROCESS: subprocess.Popen[Any] | None = None
 _BROWSER_CACHE_LOG_HANDLE: Any = None
 _AI_IMAGE_PROCESS: subprocess.Popen[Any] | None = None
 _AI_IMAGE_LOG_HANDLE: Any = None
+
+_AI_BATCH_MODULE = "tools.generate_ai_images"
+_AI_BATCH_PROVIDERS = {
+    "comfyui": "comfyui",
+    "openai": "openai",
+    "gemini": "gemini",
+}
+_AI_BATCH_KINDS = {
+    "ai": "ai",
+    "user": "user",
+}
+_AI_BATCH_KIND_JOIN = {
+    ("ai",): "ai",
+    ("user",): "user",
+    ("ai", "user"): "ai,user",
+    ("user", "ai"): "user,ai",
+}
+
+
+def _resolve_ai_batch_provider(requested: str) -> str:
+    key = requested.strip().lower()
+    if key == "default":
+        settings = db.get_setting("ui", {}) or {}
+        key = str(settings.get("defaultImageProvider") or "comfyui").strip().lower()
+    try:
+        return _AI_BATCH_PROVIDERS[key]
+    except KeyError:
+        raise HTTPException(
+            400,
+            "Batch generation supports ComfyUI, OpenAI API, or Gemini API. Manual subscription handoff is per-entry only.",
+        ) from None
+
+
+def _resolve_ai_batch_kinds(values: list[str]) -> tuple[str, ...]:
+    resolved: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        mapped = _AI_BATCH_KINDS.get(str(value).strip().lower())
+        if mapped is None or mapped in seen:
+            continue
+        seen.add(mapped)
+        resolved.append(mapped)
+    if not resolved:
+        return (_AI_BATCH_KINDS["ai"],)
+    return tuple(resolved)
+
+
+def _ai_batch_limit_arg(limit: int) -> str:
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0 or limit > 2000:
+        raise HTTPException(400, "Invalid batch limit")
+    text = format(limit, "d")
+    if re.fullmatch(r"[0-9]{1,4}", text) is None:
+        raise HTTPException(400, "Invalid batch limit")
+    return text
+
+
+def _ai_batch_command(provider: str, kinds: tuple[str, ...], limit: int, refresh: bool) -> list[str]:
+    try:
+        provider_arg = _AI_BATCH_PROVIDERS[provider]
+        kinds_arg = _AI_BATCH_KIND_JOIN[kinds]
+    except KeyError:
+        raise HTTPException(400, "Invalid batch generation arguments") from None
+    command = [
+        sys.executable,
+        "-u",
+        "-m",
+        _AI_BATCH_MODULE,
+        "--provider",
+        provider_arg,
+        "--kinds",
+        kinds_arg,
+        "--limit",
+        _ai_batch_limit_arg(limit),
+    ]
+    if refresh:
+        command.append("--refresh")
+    if provider_arg in (_AI_BATCH_PROVIDERS["openai"], _AI_BATCH_PROVIDERS["gemini"]):
+        command.append("--yes-hosted")
+    return command
+
+
+def _safe_media_path(filename: str) -> Path:
+    if not isinstance(filename, str) or not filename or "\x00" in filename:
+        raise HTTPException(400, "Invalid filename")
+    if os.path.isabs(filename) or filename.startswith("/") or filename.startswith("\\"):
+        raise HTTPException(400, "Invalid filename")
+    if ".." in Path(filename).parts or ".." in filename.split("/") or ".." in filename.split("\\"):
+        raise HTTPException(400, "Invalid filename")
+    base_path = os.path.realpath(str(db.MEDIA_DIR))
+    fullpath = os.path.normpath(os.path.join(base_path, filename))
+    if not fullpath.startswith(base_path):
+        raise HTTPException(400, "Invalid filename")
+    real = os.path.realpath(fullpath)
+    if os.path.commonpath([base_path, real]) != base_path:
+        raise HTTPException(400, "Invalid filename")
+    return Path(real)
 
 
 def _official_cache_counts() -> dict[str, int]:
@@ -271,15 +368,10 @@ def launch_ai_image_batch(payload: ImageBatchPayload) -> dict[str, Any]:
     global _AI_IMAGE_PROCESS, _AI_IMAGE_LOG_HANDLE
     if getattr(sys, "frozen", False):
         raise HTTPException(501, "The source-package batch image helper is unavailable inside the compiled shell. Run generate_missing_ai_images_windows.bat beside the app.")
-    provider = payload.provider.strip().lower()
-    settings = db.get_setting("ui", {}) or {}
-    if provider == "default":
-        provider = str(settings.get("defaultImageProvider") or "comfyui").strip().lower()
-    if provider not in {"comfyui", "openai", "gemini"}:
-        raise HTTPException(400, "Batch generation supports ComfyUI, OpenAI API, or Gemini API. Manual subscription handoff is per-entry only.")
-    if provider in {"openai", "gemini"} and not payload.confirm_hosted:
+    provider = _resolve_ai_batch_provider(payload.provider)
+    if provider in {_AI_BATCH_PROVIDERS["openai"], _AI_BATCH_PROVIDERS["gemini"]} and not payload.confirm_hosted:
         raise HTTPException(400, "Hosted API generation may be billable and requires confirmation")
-    kinds = tuple(dict.fromkeys(kind for kind in (str(value).strip().lower() for value in payload.catalog_kinds) if kind in {"ai", "user"})) or ("ai",)
+    kinds = _resolve_ai_batch_kinds(payload.catalog_kinds)
     if _AI_IMAGE_PROCESS is not None and _AI_IMAGE_PROCESS.poll() is None:
         return {"started": False, "running": True, "provider": provider, "catalog_kinds": kinds, **_ai_image_counts(kinds)}
 
@@ -291,16 +383,7 @@ def launch_ai_image_batch(payload: ImageBatchPayload) -> dict[str, Any]:
     except Exception:
         pass
     _AI_IMAGE_LOG_HANDLE = log_path.open("w", encoding="utf-8")
-    command = [
-        sys.executable, "-u", "-m", "tools.generate_ai_images",
-        "--provider", provider,
-        "--kinds", ",".join(kinds),
-        "--limit", str(payload.limit),
-    ]
-    if payload.refresh:
-        command.append("--refresh")
-    if provider in {"openai", "gemini"}:
-        command.append("--yes-hosted")
+    command = _ai_batch_command(provider, kinds, payload.limit, payload.refresh)
     flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
     try:
         _AI_IMAGE_PROCESS = subprocess.Popen(
@@ -308,6 +391,7 @@ def launch_ai_image_batch(payload: ImageBatchPayload) -> dict[str, Any]:
             cwd=str(db.APP_ROOT),
             stdout=_AI_IMAGE_LOG_HANDLE,
             stderr=subprocess.STDOUT,
+            shell=False,
             creationflags=flags,
         )
     except Exception as exc:
@@ -538,8 +622,8 @@ async def upload_media(file: UploadFile = File(...)) -> dict[str, str]:
 
 @app.get("/media/{filename}")
 def media(filename: str) -> FileResponse:
-    path = db.MEDIA_DIR / Path(filename).name
-    if not path.exists():
+    path = _safe_media_path(filename)
+    if not path.is_file():
         raise HTTPException(404, "Media not found")
     return FileResponse(path)
 
