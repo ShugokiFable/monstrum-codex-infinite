@@ -4,5 +4,5 @@ httpx>=0.28,<1
 pillow>=11,<13
 python-multipart>=0.0.20,<1
 pywebview>=5.4,<7
-curl-cffi>=0.15,<1
+curl-cffi>=0.16.2,<1
 playwright>=1.58,<2
