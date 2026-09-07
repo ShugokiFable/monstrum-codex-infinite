@@ -1,8 +1,8 @@
 fastapi>=0.141.1,<1
-uvicorn[standard]>=0.34,<1
+uvicorn[standard]>=0.52.4,<1
 httpx>=0.28.1,<1
-pillow>=11,<13
+pillow>=12.3.0,<13
 python-multipart>=0.0.32,<1
-pywebview>=5.4,<7
+pywebview>=6.2.1,<7
 curl-cffi>=0.16.2,<1
-playwright>=1.58,<2
+playwright>=1.62.0,<2
